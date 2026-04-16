@@ -21,7 +21,6 @@
       <button class="btn" id="refreshBtn">Refresh now</button>
     </div>
 
-    <!-- LANGUAGE SWITCH -->
     <div class="lang-switch">
       <button onclick="setLang('en')">EN</button>
       <button onclick="setLang('pt')">PT</button>
@@ -41,13 +40,13 @@
   </section>
 
   <section class="bubbles">
-    <button onclick="setFilter('all')">All</button>
-    <button onclick="setFilter('petrol-available')">Petrol Available</button>
-    <button onclick="setFilter('petrol-queue')">Petrol Queue</button>
-    <button onclick="setFilter('petrol-soldout')">Petrol Sold Out</button>
-    <button onclick="setFilter('diesel-available')">Diesel Available</button>
-    <button onclick="setFilter('diesel-queue')">Diesel Queue</button>
-    <button onclick="setFilter('diesel-soldout')">Diesel Sold Out</button>
+    <button onclick="setFilter('all')" id="bubble-all">All (0)</button>
+    <button onclick="setFilter('petrol-available')" id="bubble-petrol-available">Petrol Available (0)</button>
+    <button onclick="setFilter('petrol-queue')" id="bubble-petrol-queue">Petrol Queue (0)</button>
+    <button onclick="setFilter('petrol-soldout')" id="bubble-petrol-soldout">Petrol Sold Out (0)</button>
+    <button onclick="setFilter('diesel-available')" id="bubble-diesel-available">Diesel Available (0)</button>
+    <button onclick="setFilter('diesel-queue')" id="bubble-diesel-queue">Diesel Queue (0)</button>
+    <button onclick="setFilter('diesel-soldout')" id="bubble-diesel-soldout">Diesel Sold Out (0)</button>
   </section>
 
   <section id="stations" class="cards"></section>
@@ -62,7 +61,6 @@ let allStations = [];
 let activeFilter = "all";
 let currentLang = "en";
 
-/* TRANSLATIONS */
 const translations = {
   en: {
     title: "Fuel Availability Tracker",
@@ -80,7 +78,8 @@ const translations = {
     landmark: "Landmark",
     notes: "Notes",
     reporter: "Reporter",
-    updated: "Updated"
+    updated: "Updated",
+    noStations: "No stations found."
   },
   pt: {
     title: "Disponibilidade de Combustível",
@@ -98,7 +97,8 @@ const translations = {
     landmark: "Referência",
     notes: "Notas",
     reporter: "Utilizador",
-    updated: "Atualizado"
+    updated: "Atualizado",
+    noStations: "Nenhum posto encontrado."
   }
 };
 
@@ -111,9 +111,18 @@ function friendlyDate(v) {
   return isNaN(d) ? "-" : d.toLocaleString();
 }
 
+function statusClass(status) {
+  const s = normalize(status);
+  if (s === "available") return "available";
+  if (s === "available with queue") return "queue";
+  if (s === "sold out") return "soldout";
+  return "unknown";
+}
+
 function setLang(lang) {
   currentLang = lang;
   applyLanguage();
+  updateBubbleCounts();
   applyFilters();
 }
 
@@ -125,17 +134,31 @@ function applyLanguage() {
   document.querySelector(".btn-primary").textContent = t.report;
   document.getElementById("refreshBtn").textContent = t.refresh;
   document.getElementById("searchInput").placeholder = t.search;
+  document.getElementById("emptyState").textContent = t.noStations;
 
-  const buttons = document.querySelectorAll(".bubbles button");
-  if (buttons.length >= 7) {
-    buttons[0].textContent = t.all;
-    buttons[1].textContent = t.petrolAvailable;
-    buttons[2].textContent = t.petrolQueue;
-    buttons[3].textContent = t.petrolSold;
-    buttons[4].textContent = t.dieselAvailable;
-    buttons[5].textContent = t.dieselQueue;
-    buttons[6].textContent = t.dieselSold;
-  }
+  updateBubbleCounts();
+}
+
+function updateBubbleCounts() {
+  const t = translations[currentLang];
+
+  const counts = {
+    all: allStations.length,
+    petrolAvailable: allStations.filter(x => normalize(x.PetrolStatus) === "available").length,
+    petrolQueue: allStations.filter(x => normalize(x.PetrolStatus) === "available with queue").length,
+    petrolSold: allStations.filter(x => normalize(x.PetrolStatus) === "sold out").length,
+    dieselAvailable: allStations.filter(x => normalize(x.DieselStatus) === "available").length,
+    dieselQueue: allStations.filter(x => normalize(x.DieselStatus) === "available with queue").length,
+    dieselSold: allStations.filter(x => normalize(x.DieselStatus) === "sold out").length
+  };
+
+  document.getElementById("bubble-all").textContent = `${t.all} (${counts.all})`;
+  document.getElementById("bubble-petrol-available").textContent = `${t.petrolAvailable} (${counts.petrolAvailable})`;
+  document.getElementById("bubble-petrol-queue").textContent = `${t.petrolQueue} (${counts.petrolQueue})`;
+  document.getElementById("bubble-petrol-soldout").textContent = `${t.petrolSold} (${counts.petrolSold})`;
+  document.getElementById("bubble-diesel-available").textContent = `${t.dieselAvailable} (${counts.dieselAvailable})`;
+  document.getElementById("bubble-diesel-queue").textContent = `${t.dieselQueue} (${counts.dieselQueue})`;
+  document.getElementById("bubble-diesel-soldout").textContent = `${t.dieselSold} (${counts.dieselSold})`;
 }
 
 function setFilter(filter) {
@@ -193,35 +216,39 @@ function render(data) {
   container.innerHTML = data.map(item => `
     <div class="card">
       <div class="card-top">
-        <h3>${item.Station}</h3>
-        <span class="badge">${item.Area}</span>
+        <h3>${item.Station || "-"}</h3>
+        <span class="badge">${item.Area || "-"}</span>
       </div>
 
-      <p><strong>${t.landmark}:</strong> ${item.Landmark}</p>
+      <p><strong>${t.landmark}:</strong> ${item.Landmark || "-"}</p>
 
       <div class="fuel-grid">
-        <div class="fuel-box ${normalize(item.PetrolStatus)}">
-          <strong>Petrol</strong><br>${item.PetrolStatus}
+        <div class="fuel-box ${statusClass(item.PetrolStatus)}">
+          <strong>Petrol</strong><br>${item.PetrolStatus || "Unknown"}
         </div>
-        <div class="fuel-box ${normalize(item.DieselStatus)}">
-          <strong>Diesel</strong><br>${item.DieselStatus}
+        <div class="fuel-box ${statusClass(item.DieselStatus)}">
+          <strong>Diesel</strong><br>${item.DieselStatus || "Unknown"}
         </div>
       </div>
 
-      <p><strong>${translations[currentLang].landmark}:</strong> ${item.Landmark}</p>
-<p><strong>${translations[currentLang].notes}:</strong> ${item.Notes || "-"}</p>
-<p><strong>${translations[currentLang].reporter}:</strong> ${item.Reporter}</p>
-<p class="small muted"><strong>${translations[currentLang].updated}:</strong> ${friendlyDate(item.Timestamp)}</p>
+      <p><strong>${t.notes}:</strong> ${item.Notes || "-"}</p>
+      <p><strong>${t.reporter}:</strong> ${item.Reporter || "-"}</p>
+      <p class="small muted"><strong>${t.updated}:</strong> ${friendlyDate(item.Timestamp)}</p>
     </div>
   `).join("");
 }
 
 async function load() {
-  const res = await fetch(API_URL);
-  const data = await res.json();
-  allStations = data;
-  applyFilters();
-  document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    allStations = Array.isArray(data) ? data : [];
+    updateBubbleCounts();
+    applyFilters();
+    document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
+  } catch (e) {
+    document.getElementById("stations").innerHTML = "<div class='error'>Error loading data</div>";
+  }
 }
 
 document.getElementById("refreshBtn").onclick = load;
