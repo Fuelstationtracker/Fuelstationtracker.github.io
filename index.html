@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Fuel Availability Tracker</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <h1>Fuel Availability Tracker</h1>
+      <p>Community live updates for filling stations.</p>
+      <div class="actions">
+        <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSfUVjko52UrbsDvTJC11970rTi1O85CgVZo_e_Za-ra9KHQTA/viewform" target="_blank" rel="noopener">Report a station</a>
+        <button class="btn" id="refreshBtn">Refresh now</button>
+      </div>
+      <p class="muted small">Auto refresh every 2 minutes • Last refresh: <span id="lastRefresh">-</span></p>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="filters">
+      <input type="text" id="searchInput" placeholder="Search station or area" />
+    </section>
+
+    <section id="stations" class="cards"></section>
+    <section id="emptyState" class="empty hidden">No stations found.</section>
+  </main>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxYL07NCBeQOsgOjtNKS38y8ce7oNQBapnBLWs1xBy5sidOK-4iUy-fSCKcbH7kWLPR/exec";
+    let allStations = [];
+
+    function normalizeKey(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function friendlyDate(value) {
+      if (!value) return "-";
+      const d = new Date(value);
+      return isNaN(d.getTime()) ? value : d.toLocaleString();
+    }
+
+    function statusClass(status) {
+      const s = normalizeKey(status);
+      if (s === "available") return "available";
+      if (s === "available with queue") return "queue";
+      if (s === "sold out") return "soldout";
+      return "unknown";
+    }
+
+    function renderStations(items) {
+      const container = document.getElementById("stations");
+      const empty = document.getElementById("emptyState");
+
+      if (!items.length) {
+        container.innerHTML = "";
+        empty.classList.remove("hidden");
+        return;
+      }
+
+      empty.classList.add("hidden");
+
+      container.innerHTML = items.map(item => `
+        <article class="card">
+          <div class="card-top">
+            <h3>${item.Station || "Unknown station"}</h3>
+            <span class="badge">${item.Area || "-"}</span>
+          </div>
+
+          <div class="fuel-grid">
+            <div class="fuel-box ${statusClass(item.PetrolStatus)}">
+              <strong>Petrol</strong>
+              <span>${item.PetrolStatus || "Unknown"}</span>
+            </div>
+            <div class="fuel-box ${statusClass(item.DieselStatus)}">
+              <strong>Diesel</strong>
+              <span>${item.DieselStatus || "Unknown"}</span>
+            </div>
+          </div>
+
+          <p><strong>Notes:</strong> ${item.Notes || "-"}</p>
+          <p><strong>Reporter:</strong> ${item.Reporter || "Anonymous"}</p>
+          <p class="small muted"><strong>Updated:</strong> ${friendlyDate(item.Timestamp)}</p>
+        </article>
+      `).join("");
+    }
+
+    function applyFilters() {
+      const q = normalizeKey(document.getElementById("searchInput").value);
+
+      const filtered = allStations.filter(item => {
+        const station = normalizeKey(item.Station);
+        const area = normalizeKey(item.Area);
+        return !q || station.includes(q) || area.includes(q);
+      });
+
+      renderStations(filtered);
+    }
+
+    async function loadStations() {
+      const container = document.getElementById("stations");
+      try {
+        container.innerHTML = '<div class="loading">Loading stations...</div>';
+        const res = await fetch(API_URL);
+        if (!res.ok) throw new Error("Failed to fetch data");
+        const data = await res.json();
+        allStations = Array.isArray(data) ? data : [];
+        applyFilters();
+        document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
+      } catch (err) {
+        container.innerHTML = '<div class="error">Could not load data. Check that API_URL contains your deployed Apps Script /exec URL.</div>';
+      }
+    }
+
+    document.getElementById("refreshBtn").addEventListener("click", loadStations);
+    document.getElementById("searchInput").addEventListener("input", applyFilters);
+
+    loadStations();
+    setInterval(loadStations, 120000);
+  </script>
+</body>
+</html>
