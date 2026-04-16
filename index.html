@@ -12,7 +12,7 @@
       <h1>Fuel Availability Tracker</h1>
       <p>Community live updates for filling stations.</p>
       <div class="actions">
-        <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSfUVjko52UrbsDvTJC11970rTi1O85CgVZo_e_Za-ra9KHQTA/viewform" target="_blank" rel="noopener">Report a station</a>
+        <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSe4umf6PGk1CxU6gd0x8rH4Y4gk9-F0fF6445jvb_zVv2th-w/viewform" target="_blank" rel="noopener">Report a station</a>
         <button class="btn" id="refreshBtn">Refresh now</button>
       </div>
       <p class="muted small">Auto refresh every 2 minutes • Last refresh: <span id="lastRefresh">-</span></p>
@@ -21,7 +21,7 @@
 
   <main class="wrap">
     <section class="filters">
-      <input type="text" id="searchInput" placeholder="Search station or area" />
+      <input type="text" id="searchInput" placeholder="Search station, area or landmark" />
     </section>
 
     <section id="stations" class="cards"></section>
@@ -29,7 +29,7 @@
   </main>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbycceE-V_ZwsiGzTdPORNstXNPdr9oDCrZgkVGW92s1dwTt2hYyN7GTI7Si_l4kwR05/exec";
+    const API_URL = "https://script.google.com/macros/s/AKfycbx8T7mxYF-lf6ukgoNHhxye-Nck4qHeQiEaDWDnMxgDEmuWQy4S8vqy8yH6jGu7feZyhA/exec";
     let allStations = [];
 
     function normalizeKey(value) {
@@ -69,6 +69,8 @@
             <span class="badge">${item.Area || "-"}</span>
           </div>
 
+          <p><strong>Landmark:</strong> ${item.Landmark || "-"}</p>
+
           <div class="fuel-grid">
             <div class="fuel-box ${statusClass(item.PetrolStatus)}">
               <strong>Petrol</strong>
@@ -93,7 +95,8 @@
       const filtered = allStations.filter(item => {
         const station = normalizeKey(item.Station);
         const area = normalizeKey(item.Area);
-        return !q || station.includes(q) || area.includes(q);
+        const landmark = normalizeKey(item.Landmark);
+        return !q || station.includes(q) || area.includes(q) || landmark.includes(q);
       });
 
       renderStations(filtered);
@@ -110,7 +113,7 @@
         applyFilters();
         document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
       } catch (err) {
-        container.innerHTML = '<div class="error">Could not load data. Check that API_URL contains your deployed Apps Script /exec URL.</div>';
+        container.innerHTML = '<div class="error">Could not load data.</div>';
       }
     }
 
