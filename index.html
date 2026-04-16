@@ -7,195 +7,196 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <header class="hero">
-    <div class="wrap">
-      <h1>Fuel Availability Tracker</h1>
-      <p>Community live updates for filling stations.</p>
-      <div class="actions">
-        <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSe4umf6PGk1CxU6gd0x8rH4Y4gk9-F0fF6445jvb_zVv2th-w/viewform" target="_blank" rel="noopener">Report a station</a>
-        <button class="btn" id="refreshBtn">Refresh now</button>
-      </div>
-      <p class="muted small">Auto refresh every 2 minutes • Last refresh: <span id="lastRefresh">-</span></p>
+
+<header class="hero">
+  <div class="wrap">
+    <h1>Fuel Availability Tracker</h1>
+    <p>Community live updates for filling stations.</p>
+
+    <div class="actions">
+      <a class="btn btn-primary"
+         href="https://docs.google.com/forms/d/e/1FAIpQLSe4umf6PGk1CxU6gd0x8rH4Y4gk9-F0fF6445jvb_zVv2th-w/viewform"
+         target="_blank">Report a station</a>
+
+      <button class="btn" id="refreshBtn">Refresh now</button>
     </div>
-  </header>
 
-  <main class="wrap">
-    <section class="filters">
-      <input type="text" id="searchInput" placeholder="Search station, area or landmark" />
-    </section>
+    <p class="muted small">
+      Auto refresh every 2 minutes • Last refresh:
+      <span id="lastRefresh">-</span>
+    </p>
+  </div>
+</header>
 
-    <section class="bubble-filters" id="bubbleFilters">
-      <button class="filter-pill active" data-filter="all">All (0)</button>
-      <button class="filter-pill" data-filter="petrol-available">Petrol Available (0)</button>
-      <button class="filter-pill" data-filter="petrol-queue">Petrol Queue (0)</button>
-      <button class="filter-pill" data-filter="petrol-soldout">Petrol Sold Out (0)</button>
-      <button class="filter-pill" data-filter="diesel-available">Diesel Available (0)</button>
-      <button class="filter-pill" data-filter="diesel-queue">Diesel Queue (0)</button>
-      <button class="filter-pill" data-filter="diesel-soldout">Diesel Sold Out (0)</button>
-    </section>
+<main class="wrap">
 
-    <section id="stations" class="cards"></section>
-    <section id="emptyState" class="empty hidden">No stations found.</section>
-  </main>
+  <section class="filters">
+    <input type="text" id="searchInput" placeholder="Search station, area or landmark" />
+  </section>
 
-  <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbx8T7mxYF-lf6ukgoNHhxye-Nck4qHeQiEaDWDnMxgDEmuWQy4S8vqy8yH6jGu7feZyhA/exec";
-    let allStations = [];
-    let activeFilter = "all";
+  <section class="bubble-filters">
+    <button class="filter-pill active" data-filter="all">All (0)</button>
+    <button class="filter-pill" data-filter="petrol-available">Petrol Available (0)</button>
+    <button class="filter-pill" data-filter="petrol-queue">Petrol Queue (0)</button>
+    <button class="filter-pill" data-filter="petrol-soldout">Petrol Sold Out (0)</button>
+    <button class="filter-pill" data-filter="diesel-available">Diesel Available (0)</button>
+    <button class="filter-pill" data-filter="diesel-queue">Diesel Queue (0)</button>
+    <button class="filter-pill" data-filter="diesel-soldout">Diesel Sold Out (0)</button>
+  </section>
 
-    function normalizeKey(value) {
-      return String(value || "").trim().toLowerCase();
-    }
+  <section id="stations" class="cards"></section>
+  <section id="emptyState" class="empty hidden">No stations found.</section>
 
-    function friendlyDate(value) {
-      if (!value) return "-";
-      const d = new Date(value);
-      return isNaN(d.getTime()) ? value : d.toLocaleString();
-    }
+</main>
 
-    function statusClass(status) {
-      const s = normalizeKey(status);
-      if (s === "available") return "available";
-      if (s === "available with queue") return "queue";
-      if (s === "sold out") return "soldout";
-      return "unknown";
-    }
+<script>
+const API_URL = "https://script.google.com/macros/s/AKfycbx8T7mxYF-lf6ukgoNHhxye-Nck4qHeQiEaDWDnMxgDEmuWQy4S8vqy8yH6jGu7feZyhA/exec";
 
-    function matchesBubbleFilter(item, filterName) {
-      const petrol = normalizeKey(item.PetrolStatus);
-      const diesel = normalizeKey(item.DieselStatus);
+let allStations = [];
+let activeFilter = "all";
 
-      switch (filterName) {
-        case "petrol-available":
-          return petrol === "available";
-        case "petrol-queue":
-          return petrol === "available with queue";
-        case "petrol-soldout":
-          return petrol === "sold out";
-        case "diesel-available":
-          return diesel === "available";
-        case "diesel-queue":
-          return diesel === "available with queue";
-        case "diesel-soldout":
-          return diesel === "sold out";
-        default:
-          return true;
-      }
-    }
+function normalize(value) {
+  return String(value || "").toLowerCase().trim();
+}
 
-    function updateBubbleCounts(items) {
-      const counts = {
-        all: items.length,
-        "petrol-available": items.filter(i => normalizeKey(i.PetrolStatus) === "available").length,
-        "petrol-queue": items.filter(i => normalizeKey(i.PetrolStatus) === "available with queue").length,
-        "petrol-soldout": items.filter(i => normalizeKey(i.PetrolStatus) === "sold out").length,
-        "diesel-available": items.filter(i => normalizeKey(i.DieselStatus) === "available").length,
-        "diesel-queue": items.filter(i => normalizeKey(i.DieselStatus) === "available with queue").length,
-        "diesel-soldout": items.filter(i => normalizeKey(i.DieselStatus) === "sold out").length
-      };
+function friendlyDate(value) {
+  const d = new Date(value);
+  return isNaN(d) ? "-" : d.toLocaleString();
+}
 
-      const labels = {
-        all: "All",
-        "petrol-available": "Petrol Available",
-        "petrol-queue": "Petrol Queue",
-        "petrol-soldout": "Petrol Sold Out",
-        "diesel-available": "Diesel Available",
-        "diesel-queue": "Diesel Queue",
-        "diesel-soldout": "Diesel Sold Out"
-      };
+function statusClass(status) {
+  const s = normalize(status);
+  if (s === "available") return "available";
+  if (s === "available with queue") return "queue";
+  if (s === "sold out") return "soldout";
+  return "unknown";
+}
 
-      document.querySelectorAll(".filter-pill").forEach(btn => {
-        const key = btn.dataset.filter;
-        btn.textContent = `${labels[key]} (${counts[key] || 0})`;
-      });
-    }
+function matchesFilter(item, filter) {
+  const p = normalize(item.PetrolStatus);
+  const d = normalize(item.DieselStatus);
 
-    function renderStations(items) {
-      const container = document.getElementById("stations");
-      const empty = document.getElementById("emptyState");
+  switch (filter) {
+    case "petrol-available": return p === "available";
+    case "petrol-queue": return p === "available with queue";
+    case "petrol-soldout": return p === "sold out";
+    case "diesel-available": return d === "available";
+    case "diesel-queue": return d === "available with queue";
+    case "diesel-soldout": return d === "sold out";
+    default: return true;
+  }
+}
 
-      if (!items.length) {
-        container.innerHTML = "";
-        empty.classList.remove("hidden");
-        return;
-      }
+function updateCounts(data) {
+  const counts = {
+    all: data.length,
+    "petrol-available": data.filter(i => normalize(i.PetrolStatus) === "available").length,
+    "petrol-queue": data.filter(i => normalize(i.PetrolStatus) === "available with queue").length,
+    "petrol-soldout": data.filter(i => normalize(i.PetrolStatus) === "sold out").length,
+    "diesel-available": data.filter(i => normalize(i.DieselStatus) === "available").length,
+    "diesel-queue": data.filter(i => normalize(i.DieselStatus) === "available with queue").length,
+    "diesel-soldout": data.filter(i => normalize(i.DieselStatus) === "sold out").length
+  };
 
-      empty.classList.add("hidden");
+  const labels = {
+    all: "All",
+    "petrol-available": "Petrol Available",
+    "petrol-queue": "Petrol Queue",
+    "petrol-soldout": "Petrol Sold Out",
+    "diesel-available": "Diesel Available",
+    "diesel-queue": "Diesel Queue",
+    "diesel-soldout": "Diesel Sold Out"
+  };
 
-      container.innerHTML = items.map(item => `
-        <article class="card">
-          <div class="card-top">
-            <h3>${item.Station || "Unknown station"}</h3>
-            <span class="badge">${item.Area || "-"}</span>
-          </div>
+  document.querySelectorAll(".filter-pill").forEach(btn => {
+    const key = btn.dataset.filter;
+    btn.textContent = `${labels[key]} (${counts[key] || 0})`;
+  });
+}
 
-          <p><strong>Landmark:</strong> ${item.Landmark || "-"}</p>
+function render(data) {
+  const container = document.getElementById("stations");
+  const empty = document.getElementById("emptyState");
 
-          <div class="fuel-grid">
-            <div class="fuel-box ${statusClass(item.PetrolStatus)}">
-              <strong>Petrol</strong>
-              <span>${item.PetrolStatus || "Unknown"}</span>
-            </div>
-            <div class="fuel-box ${statusClass(item.DieselStatus)}">
-              <strong>Diesel</strong>
-              <span>${item.DieselStatus || "Unknown"}</span>
-            </div>
-          </div>
+  if (!data.length) {
+    container.innerHTML = "";
+    empty.classList.remove("hidden");
+    return;
+  }
 
-          <p><strong>Notes:</strong> ${item.Notes || "-"}</p>
-          <p><strong>Reporter:</strong> ${item.Reporter || "Anonymous"}</p>
-          <p class="small muted"><strong>Updated:</strong> ${friendlyDate(item.Timestamp)}</p>
-        </article>
-      `).join("");
-    }
+  empty.classList.add("hidden");
 
-    function applyFilters() {
-      const q = normalizeKey(document.getElementById("searchInput").value);
+  container.innerHTML = data.map(item => `
+    <div class="card">
+      <div class="card-top">
+        <h3>${item.Station}</h3>
+        <span class="badge">${item.Area}</span>
+      </div>
 
-      const filtered = allStations.filter(item => {
-        const station = normalizeKey(item.Station);
-        const area = normalizeKey(item.Area);
-        const landmark = normalizeKey(item.Landmark);
+      <p><strong>Landmark:</strong> ${item.Landmark}</p>
 
-        const searchMatch = !q || station.includes(q) || area.includes(q) || landmark.includes(q);
-        const bubbleMatch = matchesBubbleFilter(item, activeFilter);
+      <div class="fuel-grid">
+        <div class="fuel-box ${statusClass(item.PetrolStatus)}">
+          <strong>Petrol</strong><br>${item.PetrolStatus}
+        </div>
+        <div class="fuel-box ${statusClass(item.DieselStatus)}">
+          <strong>Diesel</strong><br>${item.DieselStatus}
+        </div>
+      </div>
 
-        return searchMatch && bubbleMatch;
-      });
+      <p><strong>Notes:</strong> ${item.Notes || "-"}</p>
+      <p><strong>Reporter:</strong> ${item.Reporter}</p>
+      <p class="small muted"><strong>Updated:</strong> ${friendlyDate(item.Timestamp)}</p>
+    </div>
+  `).join("");
+}
 
-      renderStations(filtered);
-    }
+function applyFilters() {
+  const q = normalize(document.getElementById("searchInput").value);
 
-    async function loadStations() {
-      const container = document.getElementById("stations");
-      try {
-        container.innerHTML = '<div class="loading">Loading stations...</div>';
-        const res = await fetch(API_URL);
-        if (!res.ok) throw new Error("Failed to fetch data");
-        const data = await res.json();
-        allStations = Array.isArray(data) ? data : [];
-        updateBubbleCounts(allStations);
-        applyFilters();
-        document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
-      } catch (err) {
-        container.innerHTML = '<div class="error">Could not load data.</div>';
-      }
-    }
+  const filtered = allStations.filter(item => {
+    const textMatch =
+      !q ||
+      normalize(item.Station).includes(q) ||
+      normalize(item.Area).includes(q) ||
+      normalize(item.Landmark).includes(q);
 
-    document.getElementById("refreshBtn").addEventListener("click", loadStations);
-    document.getElementById("searchInput").addEventListener("input", applyFilters);
+    return textMatch && matchesFilter(item, activeFilter);
+  });
 
-    document.querySelectorAll(".filter-pill").forEach(btn => {
-      btn.addEventListener("click", () => {
-        document.querySelectorAll(".filter-pill").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        activeFilter = btn.dataset.filter;
-        applyFilters();
-      });
-    });
+  render(filtered);
+}
 
-    loadStations();
-    setInterval(loadStations, 120000);
-  </script>
+async function load() {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+    allStations = data;
+
+    updateCounts(data);
+    applyFilters();
+
+    document.getElementById("lastRefresh").textContent = new Date().toLocaleTimeString();
+  } catch {
+    document.getElementById("stations").innerHTML = "Error loading data";
+  }
+}
+
+document.getElementById("refreshBtn").onclick = load;
+document.getElementById("searchInput").oninput = applyFilters;
+
+document.querySelectorAll(".filter-pill").forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll(".filter-pill").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    activeFilter = btn.dataset.filter;
+    applyFilters();
+  };
+});
+
+load();
+setInterval(load, 120000);
+</script>
+
 </body>
 </html>
